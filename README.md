@@ -34,6 +34,19 @@ There are certain scripts in `terraform` directory, like `apply.sh` and `plan.sh
 
 Ideally, this Lambda function will be triggered by another Lambda function which is responsible for monitoring documentation updates.
 
+Sample output from a single invocation:
+
+```bash
+LEDAA Web Scrapper Lambda invoked
+Scraping URL: https://fragment.dev/docs/install-the-sdk
+Primary section content extracted
+Primary section content processed
+Saving markdown data for https://fragment.dev/docs/install-the-sdk
+File uploaded to S3: install-the-sdk.md
+Hash saved successfully for https://fragment.dev/docs/install-the-sdk
+Scraping completed for URL: https://fragment.dev/docs/install-the-sdk
+```
+
 ## LICENSE
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

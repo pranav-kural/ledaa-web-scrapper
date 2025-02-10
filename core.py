@@ -1,23 +1,30 @@
 import requests
 from bs4 import BeautifulSoup
 import markdownify
-import os
 import hashlib
 import boto3
 
+# Constants
 BASE_URL = "https://fragment.dev/docs"
-OUTPUT_FOLDER = "scraped_docs"
-
 S3_DATA_BUCKET = "fragment-docs-data"
+S3_OUTPUT_FOLDER = "scraped_docs"
 HASHES_TABLE = "fragment-docs-hashes"
-    
+
+# Extracts HTML from the section that contains the primary documentation content specific to the topic of URL
 def get_primary_section_html(url):
     """
-    This method fetches the primary section content of a given URL.
+    This method fetches and extracts HTML from the section that contains the primary documentation content specific to the topic of URL.
 
-    url (str): The URL of the page to scrape
+    :param str url: The URL of the page to scrape
+
+    :return BeautifulSoup: The primary section content as a BeautifulSoup object
     """
+    # Fetch the page content
     response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Error: Failed to fetch URL: {url}")
+        return ""
+    # Parse the HTML content
     soup = BeautifulSoup(response.text, "html.parser")
 
     # Locate the primary content
@@ -25,7 +32,7 @@ def get_primary_section_html(url):
     if not main_content_div:
         print(f"Warning: No main content found for {url}")
         return ""
-
+    # Extract section
     primary_section = main_content_div.find("section")
     if not primary_section:
         print(f"Warning: No section found in main content for {url}")
@@ -33,11 +40,17 @@ def get_primary_section_html(url):
 
     return primary_section
 
+# Processes the primary section content HTML and converts it to markdown
 def process_primary_section_content(primary_section):
     """
-    This method processes the primary section content and converts it to markdown.
+    This method processes the primary section content HTML and converts it to markdown with proper formatting.
 
-    primary_section (bs4.element.Tag): The primary section content
+    Inline and block code snippets are converted to markdown code blocks.
+    Images are converted to markdown image links.
+
+    :param BeautifulSoup primary_section: The primary section content as a BeautifulSoup object
+
+    :return str: The markdown content
     """
     # Convert <pre><code> blocks to markdown fenced code blocks
     for pre in primary_section.find_all("pre"):
@@ -82,6 +95,7 @@ def process_primary_section_content(primary_section):
 
     return markdown_content
 
+# Saves the markdown data to a file on AWS S3 with unique name based on the URL
 def save_markdown_data(url, markdown_data):
     """
     This method saves the markdown data to a file on AWS S3 with unique name based on the URL.
@@ -94,37 +108,18 @@ def save_markdown_data(url, markdown_data):
     print(f"Saving markdown data for {url}")
     # Generate a unique filename based on the URL
     filename = url.replace(f"{BASE_URL}/", "").replace("/", "-") + ".md"
-    file_path = os.path.join(OUTPUT_FOLDER, filename)
 
-    # Save the markdown data to a file
-    try:
-      os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-      with open(file_path, "w") as f:
-          f.write(markdown_data)
-      print(f"Markdown data saved to {file_path}")
-    except FileNotFoundError:
-        print(f"Error: The directory does not exist: {os.path.dirname(filename)}")
-    except PermissionError:
-        print(f"Error: Permission denied for writing to the file: {filename}")
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-
-    # Upload the file to S3
+    # Upload the data to S3
     s3 = boto3.client('s3')
     try:
-        # Attempt to delete the file if it already exists
-        # If file does not exist, we will ignore the exception
-        s3.delete_object(Bucket=S3_DATA_BUCKET, Key=filename)
-            
-        s3.Object(S3_DATA_BUCKET, filename).put(Body=markdown_data)
+        # Save data to file on S3
+        # If file already exists, its simply overwritten
+        s3.put_object(Bucket=S3_DATA_BUCKET, Key=f"{S3_OUTPUT_FOLDER}/{filename}", Body=markdown_data)
         print(f"File uploaded to S3: {filename}")
-
-        # Remove the local file after uploading to S3
-        os.remove(file_path)
-        print(f"Local file removed: {file_path}")
     except Exception as e:
         print(f"An error occurred while uploading the file to S3: {e}")
 
+# Generates a hash of the content for a given URL and updates it in DynamoDB
 def generate_and_save_hash(url, content):
     """
     This method generates a hash of the content for a given URL and updates it in DynamoDB. If the given URL already exists in the table, it will update the existing record.
@@ -141,6 +136,7 @@ def generate_and_save_hash(url, content):
     try:
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table(HASHES_TABLE)
+        # Write/update the hash in the table
         table.put_item(Item={
             'id': url,
             'url': url,
@@ -150,6 +146,7 @@ def generate_and_save_hash(url, content):
     except Exception as e:
         print(f"An error occurred while saving the hash: {e}")
 
+# Main method to scrape the URL and generate hash
 def scrape_url_and_generate_hash(url):
     """
     This method scrapes the content of a given URL and converts it to markdown.
@@ -169,12 +166,7 @@ def scrape_url_and_generate_hash(url):
     generate_and_save_hash(url, primary_section)
     print(f"Scraping completed for URL: {url}")
 
-# def get_all_doc_links():
-#     response = requests.get(BASE_URL)
-#     soup = BeautifulSoup(response.text, "html.parser")
-#     links = [a['href'] for a in soup.find_all('a', href=True) if a['href'].startswith('/docs')]
-#     return list(set(["https://fragment.dev" + link for link in links]))
-
+# Lambda handler method (will be invoked by AWS Lambda)
 def lambda_handler(event, context):
     print("LEDAA Web Scrapper Lambda invoked")
     scrape_url_and_generate_hash("https://fragment.dev/docs/install-the-sdk")
