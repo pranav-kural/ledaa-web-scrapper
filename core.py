@@ -22,21 +22,19 @@ def get_primary_section_html(url):
     # Fetch the page content
     response = requests.get(url)
     if response.status_code != 200:
-        print(f"Error: Failed to fetch URL: {url}")
-        return ""
+        #  throw an exception if the request was unsuccessful
+        raise Exception(f"Failed to fetch URL: {url}")
     # Parse the HTML content
     soup = BeautifulSoup(response.text, "html.parser")
 
     # Locate the primary content
     main_content_div = soup.find("div", class_="basis-full")
     if not main_content_div:
-        print(f"Warning: No main content found for {url}")
-        return ""
+        raise Exception(f"No main content found for {url}")
     # Extract section
     primary_section = main_content_div.find("section")
     if not primary_section:
-        print(f"Warning: No section found in main content for {url}")
-        return ""
+        raise Exception(f"No section found in main content for {url}")
 
     return primary_section
 
@@ -117,7 +115,7 @@ def save_markdown_data(url, markdown_data):
         s3.put_object(Bucket=S3_DATA_BUCKET, Key=f"{S3_OUTPUT_FOLDER}/{filename}", Body=markdown_data)
         print(f"File uploaded to S3: {filename}")
     except Exception as e:
-        print(f"An error occurred while uploading the file to S3: {e}")
+        raise Exception(f"An error occurred while saving markdown data to S3: {e}")
 
 # Generates a hash of the content for a given URL and updates it in DynamoDB
 def generate_and_save_hash(url, content):
@@ -155,22 +153,59 @@ def scrape_url_and_generate_hash(url):
     """
     print(f"Scraping URL: {url}")
     # Get the primary section content
-    primary_section = get_primary_section_html(url)
-    print("Primary section content extracted")
-    # Process the primary section content
-    markdown_content = process_primary_section_content(primary_section)
-    print("Primary section content processed")
-    # Save the markdown content to a file
-    save_markdown_data(url, markdown_content)
-    # Generate and store hash of primary content
-    generate_and_save_hash(url, primary_section)
+    try:
+        primary_section = get_primary_section_html(url)
+        print("Primary section content extracted")
+        try:
+            # Process the primary section content
+            markdown_content = process_primary_section_content(primary_section)
+            print("Primary section content processed")
+            try: 
+                # Save the markdown content to a file
+                save_markdown_data(url, markdown_content)
+                try:
+                    # Generate and store hash of primary content
+                    generate_and_save_hash(url, markdown_content)
+                except Exception as e:
+                    print(f"An error occurred while generating and saving hash: {e}")
+                    return {
+                        'statusCode': 500,
+                        'body': 'An error occurred while generating and saving hash'
+                    }
+            except Exception as e:
+                print(f"An error occurred while saving markdown data: {e}")
+                return {
+                    'statusCode': 500,
+                    'body': 'An error occurred while saving markdown data'
+                }
+        except Exception as e:
+            print(f"An error occurred while processing primary section content: {e}")
+            return {
+                'statusCode': 500,
+                'body': 'An error occurred while processing primary section content'
+            }
+    except Exception as e:
+        print(f"An error occurred while fetching primary section content: {e}")
+        return {
+            'statusCode': 500,
+            'body': 'An error occurred while fetching primary section content'
+        }
     print(f"Scraping completed for URL: {url}")
-
-# Lambda handler method (will be invoked by AWS Lambda)
-def lambda_handler(event, context):
-    print("LEDAA Web Scrapper Lambda invoked")
-    scrape_url_and_generate_hash("https://fragment.dev/docs/install-the-sdk")
     return {
         'statusCode': 200,
         'body': 'Scraping completed'
     }
+    
+    
+
+# Lambda handler method (will be invoked by AWS Lambda)
+def lambda_handler(event, context):
+    print("LEDAA Web Scrapper Lambda invoked")
+    # Validate URL 
+    if "url" not in event:
+        return {
+            'statusCode': 400,
+            'body': 'URL is required'
+        }
+    # Scrape the URL and generate hash
+    return scrape_url_and_generate_hash(event["url"])
