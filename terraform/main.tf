@@ -80,5 +80,5 @@ resource "aws_lambda_function" "ledaa_web_scrapper" {
 
   layers = [aws_lambda_layer_version.lambda_layer.arn]
 
-  timeout = 10
+  timeout = 60
 }
