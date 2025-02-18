@@ -4,6 +4,8 @@ This is a web scrapper meant to scrap HTML data from the [Fragment's Ledger API 
 
 The extracted markdown data then can be used as source data for knowledge base in a Retrieval Augmented Generation (RAG)-based conversational AI system or application. Large Language Models (LLMs) can easily comprehend markdown formatted data, and use of LLMs for specialized semantic chunking also becomes a possibility with markdown data, further enhancing context retrieval in RAG.
 
+![ledaa-web-scrapper](https://github.com/user-attachments/assets/835a681a-5737-408a-b945-16e3e40c5ab3)
+
 ## Handling Data Updates
 
 To address the challenge of dealing with obsolete or outdated information, this program also creates and stores **unique hashes** of the primary data in **AWS DynamoDB** for each webpage URL (i.e., webpage **URL** acts as `key` and the SHA-256 **hash** generated for the HTML of the primary section on that URL is stored as the `value`). A separate AWS Lambda job runs periodically to scrap HTML data for each URL and compare the hash with the stored hash in DynamoDB. If the hash is different, the Lambda job initiates the process to scrap data again for that URL and the data loading process (embedding generation + vector store update) is triggered. Each chunk in the vector store is associated through **metadata** with the URL from which it was extracted. Therefore, when data needs to be updated for a certain URL, only specific chunks are replaced.
