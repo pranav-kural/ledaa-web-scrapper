@@ -1,8 +1,10 @@
 # LEDAA Web Scrapper
 
-This is a web scrapper meant to scrap HTML data from the [Fragment's Ledger API documentation](https://fragment.dev/docs) webpages, and prepare and store correctly formatted markdown data to AWS S3.
+This is a web scrapper meant to scrap HTML data from the [FRAGMENT (documentation)](https://fragment.dev/docs) webpages, and prepare and store correctly formatted markdown data to AWS S3.
 
 The extracted markdown data then can be used as source data for knowledge base in a Retrieval Augmented Generation (RAG)-based conversational AI system or application. Large Language Models (LLMs) can easily comprehend markdown formatted data, and use of LLMs for specialized semantic chunking also becomes a possibility with markdown data, further enhancing context retrieval in RAG.
+
+To learn more check: [Building AI Assistant for FRAGMENT documentation](https://www.pkural.ca/blog/posts/fragment/)
 
 ![ledaa-web-scrapper](https://github.com/user-attachments/assets/835a681a-5737-408a-b945-16e3e40c5ab3)
 
